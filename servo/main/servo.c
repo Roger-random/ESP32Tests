@@ -2,6 +2,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/adc.h"
+#include "driver/ledc.h"
 
 #define NO_OF_SAMPLES   64          //Multisampling
 
@@ -9,8 +10,33 @@ static const adc_channel_t channel = ADC_CHANNEL_6;     //GPIO34 if ADC1, GPIO14
 
 void app_main(void)
 {
+    // Set up analog-to-digital converter to read knob position
     adc1_config_width(ADC_WIDTH_BIT_12);
     adc1_config_channel_atten(channel, ADC_ATTEN_DB_11);
+
+    // Set up LED controller module to generate PWM pulses
+
+    // Step 1: Configure a LEDC timer component. A single timer can service
+    //         multiple LED channels.
+    ledc_timer_config_t ledc_timer = {
+        .duty_resolution = LEDC_TIMER_12_BIT, // resolution of PWM duty
+        .freq_hz = 5000,                      // frequency of PWM signal
+        .speed_mode = LEDC_LOW_SPEED_MODE,    // timer mode
+        .timer_num = LEDC_TIMER_1,            // timer index
+        .clk_cfg = LEDC_AUTO_CLK,             // Auto select the source clock
+    };
+    ledc_timer_config(&ledc_timer);
+
+    // Step 2: Configure LED channel. (References timer set up above.)
+    ledc_channel_config_t ledc_channel = {
+        .channel    = LEDC_CHANNEL_2,
+        .duty       = 0,
+        .gpio_num   = 4,
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .hpoint     = 0,
+        .timer_sel  = LEDC_TIMER_1
+    };
+    ledc_channel_config(&ledc_channel);
 
     uint32_t adc_reading = 0;
     while (1) {
@@ -23,6 +49,11 @@ void app_main(void)
         adc_reading /= NO_OF_SAMPLES;
 
         printf("Knob at [%d]\n", adc_reading);
-        vTaskDelay(pdMS_TO_TICKS(100));
+
+        // Use knob value as LED PWM duty cycle
+        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, adc_reading);
+        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
+
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
