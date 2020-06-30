@@ -2,7 +2,7 @@
 set(COMPONENT_REQUIRES )
 set(COMPONENT_PRIV_REQUIRES )
 
-set(COMPONENT_SRCS "knob.c")
+set(COMPONENT_SRCS "servo.c")
 set(COMPONENT_ADD_INCLUDEDIRS "")
 
 register_component()

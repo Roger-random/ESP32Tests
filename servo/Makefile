@@ -3,7 +3,7 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := knob
+PROJECT_NAME := servo
 
 include $(IDF_PATH)/make/project.mk
 
