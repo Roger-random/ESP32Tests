@@ -19,8 +19,8 @@ void app_main(void)
     // Step 1: Configure a LEDC timer component. A single timer can service
     //         multiple LED channels.
     ledc_timer_config_t ledc_timer = {
-        .duty_resolution = LEDC_TIMER_12_BIT, // resolution of PWM duty
-        .freq_hz = 5000,                      // frequency of PWM signal
+        .duty_resolution = LEDC_TIMER_15_BIT, // resolution of PWM duty
+        .freq_hz = 50,                        // frequency of PWM signal
         .speed_mode = LEDC_LOW_SPEED_MODE,    // timer mode
         .timer_num = LEDC_TIMER_1,            // timer index
         .clk_cfg = LEDC_AUTO_CLK,             // Auto select the source clock
@@ -38,7 +38,9 @@ void app_main(void)
     };
     ledc_channel_config(&ledc_channel);
 
+    uint32_t printskip = 0;
     uint32_t adc_reading = 0;
+    uint32_t pwm_duty = 0;
     while (1) {
         adc_reading = 0;
         for (int i = 0; i < NO_OF_SAMPLES; i++) {
@@ -48,11 +50,20 @@ void app_main(void)
         }
         adc_reading /= NO_OF_SAMPLES;
 
-        printf("Knob at [%d]\n", adc_reading);
-
         // Use knob value as LED PWM duty cycle
-        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, adc_reading);
+        pwm_duty = 410 + adc_reading;
+        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, pwm_duty);
         ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
+
+        if (printskip < 10)
+        {
+            printskip++;
+        }
+        else
+        {
+            printf("Knob at [%d] PWM duty at [%d]\n", adc_reading, pwm_duty);
+            printskip = 0;
+        }
 
         vTaskDelay(pdMS_TO_TICKS(20));
     }
