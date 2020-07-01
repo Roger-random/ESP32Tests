@@ -51,7 +51,8 @@ void app_main(void)
         adc_reading /= NO_OF_SAMPLES;
 
         // Use knob value as LED PWM duty cycle
-        pwm_duty = 410 + adc_reading;
+        pwm_duty = 410 + adc_reading; // Standard
+        // pwm_duty = 32368 - adc_reading; // Inversed
         ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, pwm_duty);
         ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
 
