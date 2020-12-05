@@ -1,8 +1,13 @@
 // ESP32 pulse generation test intended to control velocity of a stepper motor.
 // Does not track number of steps, and hence unsuitable for position control.
+//
+// Copyright (c) Roger Cheng and released "AS IS" under MIT License
 
 // PWM generation code adapted from Espressif ESP-IDF LEDC PWM example
 // https://github.com/espressif/esp-idf/blob/master/examples/peripherals/ledc/main/ledc_example_main.c
+
+// Digital output code extracted from Espressif ESP-IDF GPIO example
+// https://github.com/espressif/esp-idf/blob/master/examples/peripherals/gpio/generic_gpio/main/gpio_example_main.c
 
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
@@ -10,22 +15,27 @@
 #include "driver/ledc.h"
 #include "esp_err.h"
 
-// Only certain combinations of PWM frequency vs. duty cycle are allowed.
-// The higher the frequency, the coarser the control over duty cycle.
-// At 40MHz only 1-bit duty cycle control is possible: 0% 50%, and 100%.
-// At 20MHz, 2-bit, etc.
-//
-// This project desires a minimum PWM frequency of 8Hz, which imposes
-// a lower limit of 7-bits on duty cycle, which in turn imposes an
-// maximum PWM frequency of 625kHz.
-
 // STEP and DIRECTION output pins for stepper motor driver.
-#define STEP_PIN        GPIO_NUM_12
-#define DIRECTION_PIN   GPIO_NUM_14
+static const gpio_num_t step_pin = GPIO_NUM_12;
+static const gpio_num_t direction_pin = GPIO_NUM_14;
 
 void app_main(void)
 {
-    // Configure timer to be used by LEDC peripheral
+    /////////////////////////////////////////////////////////////////////////
+    //
+    // Configure timer to be used by LEDC peripheral, then configure LEDC
+    // to pulse our STEP pin.
+    //
+    // Only certain combinations of PWM frequency vs. duty cycle are allowed.
+    // The higher the frequency, the coarser the control over duty cycle.
+    // At 40MHz only 1-bit duty cycle control is possible: 0% 50%, or 100%.
+    // At 20MHz, 2-bit, etc.
+    //
+    // This project desires a minimum PWM frequency of 8Hz, which imposes
+    // a lower limit of 7-bits on duty cycle, which in turn imposes an
+    // maximum PWM frequency of 625kHz.
+    //
+    //
     ledc_timer_config_t ledc_timer = {
         // Running Timer 0 in high speed mode. Not picky about which source
         // clock to use, so let it auto-select.
@@ -41,24 +51,31 @@ void app_main(void)
     };
     ledc_timer_config(&ledc_timer);
 
-    // Configure LEDC channel to control output pin
     ledc_channel_config_t ledc_channel = {
+        // Listening to beat of our drummer, high speed timer 0
         .timer_sel  = LEDC_TIMER_0,
         .speed_mode = LEDC_HIGH_SPEED_MODE,
+
+        // Details for this output
         .channel    = LEDC_CHANNEL_0,
         .duty       = 0, // Start out stopped (0% duty cycle)
         .hpoint     = 0,
-        .gpio_num   = STEP_PIN,
+        .gpio_num   = step_pin,
     };
     ledc_channel_config(&ledc_channel);
 
-    // Configure digital output port
+    /////////////////////////////////////////////////////////////////////////
+    //
+    // Configure digital output for our DIRECTION pin.
+    //  No interrupts will be driven by this pin
+    //  No internal pull-down or pull-up resistors
+    //
     gpio_config_t io_conf = {
         .mode = GPIO_MODE_OUTPUT,
         .intr_type = GPIO_INTR_DISABLE,
         .pull_down_en = 0,
         .pull_up_en = 0,
-        .pin_bit_mask = (1ULL<<DIRECTION_PIN),
+        .pin_bit_mask = (1ULL<<direction_pin),
     };
     gpio_config(&io_conf);
 
@@ -68,7 +85,7 @@ void app_main(void)
         // On/off blink test.
 
         // Direction toggled every loop
-        gpio_set_level(DIRECTION_PIN, direction);
+        gpio_set_level(direction_pin, direction);
         direction = !direction;
 
         // 64 is 50% duty cycle in 7-bit resolution.
