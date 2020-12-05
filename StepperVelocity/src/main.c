@@ -19,6 +19,10 @@
 // a lower limit of 7-bits on duty cycle, which in turn imposes an
 // maximum PWM frequency of 625kHz.
 
+// STEP and DIRECTION output pins for stepper motor driver.
+#define STEP_PIN        GPIO_NUM_12
+#define DIRECTION_PIN   GPIO_NUM_14
+
 void app_main(void)
 {
     // Configure timer to be used by LEDC peripheral
@@ -44,13 +48,28 @@ void app_main(void)
         .channel    = LEDC_CHANNEL_0,
         .duty       = 0, // Start out stopped (0% duty cycle)
         .hpoint     = 0,
-        .gpio_num   = 12,
+        .gpio_num   = STEP_PIN,
     };
     ledc_channel_config(&ledc_channel);
 
+    // Configure digital output port
+    gpio_config_t io_conf = {
+        .mode = GPIO_MODE_OUTPUT,
+        .intr_type = GPIO_INTR_DISABLE,
+        .pull_down_en = 0,
+        .pull_up_en = 0,
+        .pin_bit_mask = (1ULL<<DIRECTION_PIN),
+    };
+    gpio_config(&io_conf);
+
+    bool direction = true;
     // Setup complete, enter infinite loop
     while (1) {
         // On/off blink test.
+
+        // Direction toggled every loop
+        gpio_set_level(DIRECTION_PIN, direction);
+        direction = !direction;
 
         // 64 is 50% duty cycle in 7-bit resolution.
         ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, 64);
