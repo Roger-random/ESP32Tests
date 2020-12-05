@@ -24,8 +24,24 @@ static const gpio_num_t step_pin = GPIO_NUM_12;
 static const gpio_num_t direction_pin = GPIO_NUM_14;
 
 // Potentiometer input pin and values averaged over specified number of readings.
-static const int16_t multi_sample_count = 32;
+static const uint32_t multi_sample_count = 32;
 static const adc_channel_t channel = ADC_CHANNEL_6; // Translates to GPIO_NUM_34 if used with ADC1
+
+// ADC values as a result of using 12-bit width. Do not change unless changing ADC_WIDTH_BIT_12.
+static const int32_t adc_min = 0;
+static const int32_t adc_max = 4095;
+static const int32_t adc_mid = (adc_max - adc_min)/2;
+
+// PWM ranges as a result of timer resolution. Do not change unless changing from LEDC_TIMER_7_BIT.
+static const int32_t freq_min = 8; // Hz
+static const int32_t freq_max = 625000; // Hz
+
+// Parameters for how potentiometer value is translated to motor velocity.
+// Free to tune as appropriate for application. ("Season to taste")
+static const int32_t speed_min = freq_min; // Anything lower than speed_min is treated as stopped
+static const int32_t speed_max = 240; // Hz
+static const int32_t accel_limit = 20; // Lower for more gradual changes.
+static const bool    invert_direction = false;
 
 void app_main(void)
 {
@@ -97,32 +113,68 @@ void app_main(void)
     adc1_config_width(ADC_WIDTH_BIT_12);
     adc1_config_channel_atten(channel, ADC_ATTEN_DB_11);
 
-    bool direction = true;
-    uint32_t adc_cumulative;
-    uint32_t adc_average;
+    int32_t adc_cumulative;
+    int32_t adc_average;
+    int32_t  adc_zerocenter;
+
+    int32_t speed_target = 0;
+    int32_t speed_current = 0;
+    int32_t speed_absolute = 0;
+
+    bool direction_current = true;
     // Setup complete, enter infinite loop
     while (1) {
         // Since ADC is a noisy process, take multiple readings then average.
         adc_cumulative = 0;
-        for (int i = 0; i < multi_sample_count; i++) {
+        for (int32_t i = 0; i < multi_sample_count; i++) {
             adc_cumulative += adc1_get_raw(channel);
         }
         adc_average = adc_cumulative / multi_sample_count;
 
-        printf("Knob at %d\n", adc_average);
+        // adc_zerocenter range: -adc_mid to +adc_mid
+        adc_zerocenter = adc_average - adc_mid;
 
-        // Direction toggled every loop
-        gpio_set_level(direction_pin, direction);
-        direction = !direction;
+        // speed_target range: -speed_max to +speed_max
+        speed_target = adc_zerocenter * speed_max / adc_mid;
 
-        // 64 is 50% duty cycle in 7-bit resolution.
-        ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, 64);
-        ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        // Calculate new speed based on target and acceleration limit
+        if (speed_target > speed_current + accel_limit) {
+            speed_current += accel_limit;
+        }
+        else if (speed_target < speed_current - accel_limit) {
+            speed_current -= accel_limit;
+        }
+        else {
+            speed_current = speed_target;
+        }
 
-        // 0%
-        ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, 0);
-        ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        printf("Speed current %d -- target %d\n", speed_current, speed_target);
+
+        // Output direction pin
+        direction_current = speed_current > 0;
+        if (invert_direction) {
+            direction_current = !direction_current;
+        }
+        gpio_set_level(direction_pin, direction_current);
+
+        // Update PWM duty cycle and frequency
+        speed_absolute = abs(speed_current);
+        if (speed_absolute < speed_min) {
+            // Deadband = PWM duty cycle zero. PWM frequency irrelevant.
+            ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, 0);
+            ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
+        } else {
+            // 64 is 50% duty cycle in 7-bit PWM resolution.
+            ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, 64);
+            ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
+
+            // Update PWM frequency
+            if (speed_absolute > freq_max) {
+                speed_absolute = freq_max;
+            }
+            ledc_set_freq(ledc_timer.speed_mode, ledc_timer.timer_num, speed_absolute);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
