@@ -24,7 +24,7 @@ static const gpio_num_t step_pin = GPIO_NUM_12;
 static const gpio_num_t direction_pin = GPIO_NUM_14;
 
 // Potentiometer input pin and values averaged over specified number of readings.
-static const uint32_t multi_sample_count = 32;
+static const int32_t multi_sample_count = 32;
 static const adc_channel_t channel = ADC_CHANNEL_6; // Translates to GPIO_NUM_34 if used with ADC1
 
 // ADC values as a result of using 12-bit width. Do not change unless changing ADC_WIDTH_BIT_12.
@@ -38,13 +38,41 @@ static const int32_t freq_max = 625000; // Hz
 
 // Parameters for how potentiometer value is translated to motor velocity.
 // Free to tune as appropriate for application. ("Season to taste")
-static const int32_t speed_min = freq_min; // Anything lower than speed_min is treated as stopped
-static const int32_t speed_max = 240; // Hz
-static const int32_t accel_limit = 20; // Lower for more gradual changes.
+static const int32_t adc_deadband = 75; // Stop if ADC value is within adc_mid +/- adc_deadband
+static const int32_t speed_min = freq_min; // Hz. Requires: freq_min <= speed_min < speed_max
+static const int32_t speed_max = 240; // Hz Requires: speed_min < speed_max <= freq_max
+static const int32_t update_period = 100; // milliseconds to wait between updates
+static const int32_t accel_limit = 10; // Hz. Speed change per update will not exceed this amount
 static const bool    invert_direction = false;
+
+// Values resulting from above parameters, should never need to change directly.
+static const int32_t adc_motion = adc_mid - adc_deadband; // Range of ADC values producing motion
+static const int32_t speed_range = speed_max - speed_min; // Valid range of speed in Hz
 
 void app_main(void)
 {
+    /////////////////////////////////////////////////////////////////////////
+    //
+    // Parameter checking
+    //
+    if (adc_max < adc_min) {
+        printf("INVALID PARAMETER: ADC max %d is less than min %d\n", adc_max, adc_min);
+        return;
+    }
+    if (speed_min < freq_min) {
+        printf("INVALID PARAMETER: Specified min speed %d below PWM minimum %d\n", speed_min, freq_min);
+        return;
+    }
+    if (speed_min > speed_max) {
+        printf("INVALID PARAMETER: Specified min speed %d exceeds specified top speed %d\n", speed_min, speed_max);
+        return;
+    }
+    if (speed_max > freq_max) {
+        printf("INVALID PARAMETER: Specified top speed %d exceeds PWM maximum %d\n", speed_max, freq_max);
+        return;
+    }
+
+
     /////////////////////////////////////////////////////////////////////////
     //
     // Configure timer to be used by LEDC peripheral, then configure LEDC
@@ -58,7 +86,6 @@ void app_main(void)
     // This project desires a minimum PWM frequency of 8Hz, which imposes
     // a lower limit of 7-bits on duty cycle, which in turn imposes an
     // maximum PWM frequency of 625kHz.
-    //
     //
     ledc_timer_config_t ledc_timer = {
         // Running Timer 0 in high speed mode. Not picky about which source
@@ -113,29 +140,57 @@ void app_main(void)
     adc1_config_width(ADC_WIDTH_BIT_12);
     adc1_config_channel_atten(channel, ADC_ATTEN_DB_11);
 
-    int32_t adc_cumulative;
-    int32_t adc_average;
-    int32_t  adc_zerocenter;
+    /////////////////////////////////////////////////////////////////////////
+    //
+    //  Variables we'll need for calculation during main loop
+    //
+    int32_t adc_cumulative; // Accumulated value of multiple ADC samples
+    int32_t adc_average;    // Average of multiple ADC samples [adc_min, adc_max]
+    int32_t adc_zerocenter; // ADC range centering at zero [-adc_mid, adc_mid]
+    int32_t adc_absolute;   // Absolute value of zero-centered ADC range [0, adc_mid]
 
-    int32_t speed_target = 0;
-    int32_t speed_current = 0;
-    int32_t speed_absolute = 0;
+    int32_t speed_target = 0;   // Speed targeted by ADC
+    int32_t speed_current = 0;  // Speed within acceleration limites sent to PWM.
 
-    bool direction_current = true;
-    // Setup complete, enter infinite loop
+    bool direction_current = true; // Movement direction
+
+    /////////////////////////////////////////////////////////////////////////
+    //
+    //  Preparation complete, start main loop
+    //
     while (1) {
-        // Since ADC is a noisy process, take multiple readings then average.
+        // Since ADC is a noisy process, take multiple readings.
         adc_cumulative = 0;
         for (int32_t i = 0; i < multi_sample_count; i++) {
             adc_cumulative += adc1_get_raw(channel);
         }
+
+        // Then take the average of all those values.
         adc_average = adc_cumulative / multi_sample_count;
 
-        // adc_zerocenter range: -adc_mid to +adc_mid
+        // Center range of values at zero.
         adc_zerocenter = adc_average - adc_mid;
 
-        // speed_target range: -speed_max to +speed_max
-        speed_target = adc_zerocenter * speed_max / adc_mid;
+        // For deadband & scaling math, throw away negative sig.
+        adc_absolute = abs(adc_zerocenter);
+
+        // Target speed is zero within deadband. Outside of deadband, it is
+        // scaled to range [speed_min, speed_max]
+        if (adc_absolute < adc_deadband) {
+            speed_target = 0;
+        } else {
+            adc_absolute -= adc_deadband; // Range now [0, adc_motion]
+
+            // Scale from [0, adc_motion] to [speed_min, speed_max]
+            speed_target = speed_min + ((adc_absolute * speed_range) / adc_motion);
+        }
+
+        // Put the negative sign back in for accleration calculation.
+        // Otherwise we would go straight from 100 to -100 instead of
+        // smoothly transitioning through zero.
+        if (adc_zerocenter < 0) {
+            speed_target *= -1;
+        }
 
         // Calculate new speed based on target and acceleration limit
         if (speed_target > speed_current + accel_limit) {
@@ -148,33 +203,31 @@ void app_main(void)
             speed_current = speed_target;
         }
 
-        printf("Speed current %d -- target %d\n", speed_current, speed_target);
+        // Diagnostic output
+        // printf("Speed target %d -- current %d\n", speed_target, speed_current);
 
-        // Output direction pin
+        // Output direction to direction_pin
         direction_current = speed_current > 0;
         if (invert_direction) {
             direction_current = !direction_current;
         }
         gpio_set_level(direction_pin, direction_current);
 
-        // Update PWM duty cycle and frequency
-        speed_absolute = abs(speed_current);
-        if (speed_absolute < speed_min) {
-            // Deadband = PWM duty cycle zero. PWM frequency irrelevant.
+        // Update PWM frequency with newly calculated speed
+        if (abs(speed_current) < speed_min) {
+            // Deadband. PWM duty cycle zero. PWM frequency irrelevant.
             ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, 0);
             ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
-        } else {
+        }
+        else {
             // 64 is 50% duty cycle in 7-bit PWM resolution.
             ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, 64);
             ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
 
-            // Update PWM frequency
-            if (speed_absolute > freq_max) {
-                speed_absolute = freq_max;
-            }
-            ledc_set_freq(ledc_timer.speed_mode, ledc_timer.timer_num, speed_absolute);
+            ledc_set_freq(ledc_timer.speed_mode, ledc_timer.timer_num, abs(speed_current));
         }
 
-        vTaskDelay(pdMS_TO_TICKS(100));
+        // Wait before repeating, yielding to ESP32 housekeeping chores
+        vTaskDelay(pdMS_TO_TICKS(update_period));
     }
 }
