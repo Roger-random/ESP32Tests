@@ -9,15 +9,23 @@
 // Digital output code extracted from Espressif ESP-IDF GPIO example
 // https://github.com/espressif/esp-idf/blob/master/examples/peripherals/gpio/generic_gpio/main/gpio_example_main.c
 
+// Potentiometer reading code extracted from Espressif ESP-IDF ADC1 example
+// https://github.com/espressif/esp-idf/blob/master/examples/peripherals/adc/main/adc1_example_main.c
+
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "driver/adc.h"
 #include "driver/ledc.h"
 #include "esp_err.h"
 
 // STEP and DIRECTION output pins for stepper motor driver.
 static const gpio_num_t step_pin = GPIO_NUM_12;
 static const gpio_num_t direction_pin = GPIO_NUM_14;
+
+// Potentiometer input pin and values averaged over specified number of readings.
+static const int16_t multi_sample_count = 32;
+static const adc_channel_t channel = ADC_CHANNEL_6; // Translates to GPIO_NUM_34 if used with ADC1
 
 void app_main(void)
 {
@@ -79,10 +87,29 @@ void app_main(void)
     };
     gpio_config(&io_conf);
 
+    /////////////////////////////////////////////////////////////////////////
+    //
+    // Configure input pin for analog-to-digital conversion (ADC) to read
+    // potentiometer position.
+    //  12-bit ADC = results will be between 0 and 4095 inclusive
+    //  11 db attenuation allows reading the full range of 3.3V
+    //
+    adc1_config_width(ADC_WIDTH_BIT_12);
+    adc1_config_channel_atten(channel, ADC_ATTEN_DB_11);
+
     bool direction = true;
+    uint32_t adc_cumulative;
+    uint32_t adc_average;
     // Setup complete, enter infinite loop
     while (1) {
-        // On/off blink test.
+        // Since ADC is a noisy process, take multiple readings then average.
+        adc_cumulative = 0;
+        for (int i = 0; i < multi_sample_count; i++) {
+            adc_cumulative += adc1_get_raw(channel);
+        }
+        adc_average = adc_cumulative / multi_sample_count;
+
+        printf("Knob at %d\n", adc_average);
 
         // Direction toggled every loop
         gpio_set_level(direction_pin, direction);
