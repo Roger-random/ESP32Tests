@@ -32,17 +32,17 @@ static const int32_t adc_min = 0;
 static const int32_t adc_max = 4095;
 static const int32_t adc_mid = (adc_max - adc_min)/2;
 
-// PWM ranges as a result of timer resolution. Do not change unless changing from LEDC_TIMER_7_BIT.
-static const int32_t freq_min = 8; // Hz
-static const int32_t freq_max = 625000; // Hz
+// PWM ranges as a result of timer resolution. Do not change unless changing from LEDC_TIMER_5_BIT.
+static const int32_t freq_min = 32; // Hz
+static const int32_t freq_max = 32500; // Hz
 
 // Parameters for how potentiometer value is translated to motor velocity.
 // Free to tune as appropriate for application. ("Season to taste")
-static const int32_t adc_deadband = 75; // Stop if ADC value is within adc_mid +/- adc_deadband
+static const int32_t adc_deadband = 100; // Stop if ADC value is within adc_mid +/- adc_deadband
 static const int32_t speed_min = freq_min; // Hz. Requires: freq_min <= speed_min < speed_max
-static const int32_t speed_max = 240; // Hz Requires: speed_min < speed_max <= freq_max
+static const int32_t speed_max = 19000; // Hz Requires: speed_min < speed_max <= freq_max
 static const int32_t update_period = 100; // milliseconds to wait between updates
-static const int32_t accel_limit = 10; // Hz. Speed change per update will not exceed this amount
+static const int32_t accel_limit = 2000; // Hz. Speed change per update will not exceed this amount
 static const bool    invert_direction = false;
 
 // Values resulting from above parameters, should never need to change directly.
@@ -83,10 +83,6 @@ void app_main(void)
     // At 40MHz only 1-bit duty cycle control is possible: 0% 50%, or 100%.
     // At 20MHz, 2-bit, etc.
     //
-    // This project desires a minimum PWM frequency of 8Hz, which imposes
-    // a lower limit of 7-bits on duty cycle, which in turn imposes an
-    // maximum PWM frequency of 625kHz.
-    //
     ledc_timer_config_t ledc_timer = {
         // Running Timer 0 in high speed mode. Not picky about which source
         // clock to use, so let it auto-select.
@@ -94,11 +90,8 @@ void app_main(void)
         .speed_mode = LEDC_HIGH_SPEED_MODE,
         .clk_cfg = LEDC_AUTO_CLK,
 
-        // Desire minimum PWM frequency of 8Hz...
-        .freq_hz = 8,
-
-        // ... which means we have to use at least 7 bits on PWM duty cycle
-        .duty_resolution = LEDC_TIMER_7_BIT,
+        .freq_hz = 32,
+        .duty_resolution = LEDC_TIMER_5_BIT,
     };
     ledc_timer_config(&ledc_timer);
 
@@ -220,8 +213,8 @@ void app_main(void)
             ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
         }
         else {
-            // 64 is 50% duty cycle in 7-bit PWM resolution.
-            ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, 64);
+            // 16 is 50% duty cycle in 5-bit PWM resolution.
+            ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, 16);
             ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
 
             ledc_set_freq(ledc_timer.speed_mode, ledc_timer.timer_num, abs(speed_current));
