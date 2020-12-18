@@ -12,3 +12,7 @@ Code fragments cut and pasted from
 [LEDC sample](https://github.com/espressif/esp-idf/tree/master/examples/peripherals/ledc)
 to use the low speed LEDC module to generate PWM to control a servo across roughly the
 same range we can expect to receive from `knob` ADC. (12 bits or up to 4096 positions.)
+* `ESP32_Stepper1` - a nonfunctioning aborted attempt to use the
+[ESP-FlexyStepper](https://github.com/pkerspe/ESP-FlexyStepper) library.
+* `StepperVelocity` - Reads value of potentiometer using ADC and outputs stepper
+control STEP signals using LEDC PWM set to 50% duty cycle but with varying frequency.
