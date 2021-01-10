@@ -164,7 +164,7 @@ void app_main(void)
         // Center range of values at zero.
         adc_zerocenter = adc_average - adc_mid;
 
-        // For deadband & scaling math, throw away negative sig.
+        // For deadband & scaling math, throw away negative sign.
         adc_absolute = abs(adc_zerocenter);
 
         // Target speed is zero within deadband. Outside of deadband, it is
@@ -196,7 +196,7 @@ void app_main(void)
             speed_current = speed_target;
         }
 
-        // Diagnostic output
+        // Uncomment next line for diagnostic output
         // printf("Speed target %d -- current %d\n", speed_target, speed_current);
 
         // Output direction to direction_pin
