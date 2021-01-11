@@ -3,6 +3,6 @@
 
 #include "driver/gpio.h"
 
-static const gpio_num_t led_pin = GPIO_NUM_4;
+static const gpio_num_t led_pin = GPIO_NUM_2;
 
 void status_led_task(void*);
