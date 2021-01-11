@@ -12,5 +12,5 @@
 
 void app_main()
 {
-  xTaskCreate(status_led_task, "status_led_task", 1024, NULL, 10, NULL);
+  xTaskCreate(status_led_task, "status_led_task", 2048, NULL, 10, NULL);
 }

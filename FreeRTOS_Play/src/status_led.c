@@ -2,7 +2,6 @@
 
 void status_led_task(void *arg)
 {
-  printf("status_led_task started");
   // Configure a pin for GPIO output to blink an LED
   gpio_config_t io_conf = {
       .mode = GPIO_MODE_OUTPUT,
@@ -17,7 +16,6 @@ void status_led_task(void *arg)
   bool led_on = true;
   while(1)
   {
-    printf("status_led_task loop");
     gpio_set_level(led_pin, led_on);
     vTaskDelay(pdMS_TO_TICKS(500));
     led_on = !led_on;
