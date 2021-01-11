@@ -16,3 +16,4 @@ same range we can expect to receive from `knob` ADC. (12 bits or up to 4096 posi
 [ESP-FlexyStepper](https://github.com/pkerspe/ESP-FlexyStepper) library.
 * `StepperVelocity` - Reads value of potentiometer using ADC and outputs stepper
 control STEP signals using LEDC PWM set to 50% duty cycle but with varying frequency.
+* `FreeRTOS_Play` - learning FreeRTOS APIs.
