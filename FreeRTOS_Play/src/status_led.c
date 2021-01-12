@@ -13,11 +13,11 @@ void status_led_task(void *arg)
   gpio_config(&io_conf);
 
   // Blink that LED
-  bool led_on = true;
   while(1)
   {
-    gpio_set_level(led_pin, led_on);
-    vTaskDelay(pdMS_TO_TICKS(500));
-    led_on = !led_on;
+    gpio_set_level(led_pin, true);
+    vTaskDelay(pdMS_TO_TICKS(10));
+    gpio_set_level(led_pin, false);
+    vTaskDelay(pdMS_TO_TICKS(1990));
   }
 }
