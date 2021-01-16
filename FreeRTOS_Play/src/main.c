@@ -8,9 +8,11 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "joystick.h"
 #include "status_led.h"
 
 void app_main()
 {
   xTaskCreate(status_led_task, "status_led_task", 2048, NULL, 10, NULL);
+  xTaskCreate(joystick_read_task, "joystick_read_task", 2048, NULL, 15, NULL);
 }
