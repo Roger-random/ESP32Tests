@@ -1,3 +1,6 @@
+#ifndef INC_STATUS_LED_H
+#define INC_STATUS_LED_H
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -9,3 +12,5 @@
 static const gpio_num_t led_pin = GPIO_NUM_2;
 
 void status_led_task(void*);
+
+#endif // #ifndef INC_STATUS_LED_H

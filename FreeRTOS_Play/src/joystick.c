@@ -1,9 +1,16 @@
-#include <stdio.h>
-
 #include "joystick.h"
 
-void joystick_read_task(void* pvParameters)
+void joystick_read_task(void* pvParameter)
 {
+  // Get ready to use caller-allocated queue for communicating joystick data
+  QueueHandle_t xJoystickQueue;
+  if (NULL == pvParameter)
+  {
+    printf("ERROR: joystick_read_task parameter is null. Expected handle to joystick data queue.");
+    vTaskDelete(NULL); // Delete self.
+  }
+  xJoystickQueue = (QueueHandle_t)pvParameter;
+
   // Configure a pin for GPIO input to see if joystick button is pressed
   gpio_config_t io_conf = {
       .mode = GPIO_MODE_INPUT,
@@ -18,15 +25,15 @@ void joystick_read_task(void* pvParameters)
   adc1_config_channel_atten(joystick_y, joystick_attenuation);
 
   // Read loop
-  int button_x = 0;
-  int button_y = 0;
-  int button_state = 0;
+  Joystick_t joystickData;
   while(true)
   {
-    button_x = adc1_get_raw(joystick_x);
-    button_y = adc1_get_raw(joystick_y);
-    button_state = gpio_get_level(joystick_button);
-    printf("Joystick: %d,%d @ %d\n", button_x, button_y, button_state);
+    joystickData.timeStamp = xTaskGetTickCount();
+    joystickData.uiX = adc1_get_raw(joystick_x);
+    joystickData.uiY = adc1_get_raw(joystick_y);
+    joystickData.buttonUp = gpio_get_level(joystick_button);
+
+    xQueueOverwrite(xJoystickQueue, &joystickData);
     vTaskDelay(pdMS_TO_TICKS(joystick_read_period));
   }
 }

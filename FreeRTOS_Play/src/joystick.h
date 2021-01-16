@@ -1,4 +1,10 @@
+#ifndef INC_JOYSTICK_H
+#define INC_JOYSTICK_H
+
+#include <stdio.h>
+
 #include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
 #include "freertos/task.h"
 
 #include "driver/adc.h"
@@ -39,4 +45,27 @@ static const adc_atten_t    joystick_attenuation = ADC_ATTEN_DB_11;
 // Amount of time to wait between reads, in milliseconds.
 static const int            joystick_read_period   = 250;
 
+// Joystick data will be distributed via a FreeRTOS queue
+// * Caller is responsible for allocating a queue for this data type and
+//   sending the handle as parameter to joystick_read_task().
+// * joystick_read_task() will periodically call xQueueOverwrite() on the head
+//   of the queue with latest data.
+// * Anyone with handle to the queue can call xQueuePeek() to see latest data.
+//
+// joystick_read_task() does not care if there is one reader, multiple readers,
+// or no readers at all. So this message is kept as lean as possible without
+// any processing. (Filtering, averaging, scaling, etc.) This way we ensure no
+// time is wasted calculating data nobody will read.
+typedef struct xJoystickMessage
+{
+  TickType_t  timeStamp;
+  uint32_t    uiX;
+  uint32_t    uiY;
+  bool        buttonUp;
+} Joystick_t;
+
+// FreeRTOS task which will read joystick data every joystick_read_period and
+// posts to the given queue of type Joystick_t.
 void joystick_read_task(void*);
+
+#endif // #ifndef INC_JOYSTICK_H
