@@ -12,7 +12,7 @@
 #include "freertos/task.h"
 
 #include "joystick.h"
-#include "queue_print.h"
+#include "joy_control.h"
 #include "status_led.h"
 
 void app_main()
@@ -28,6 +28,10 @@ void app_main()
   else
   {
     xTaskCreate(joystick_read_task, "joystick_read_task", 2048, xJoystickQueue, 15, NULL);
-    xTaskCreate(queue_print_task, "queue_print_task", 2048, xJoystickQueue, 14, NULL);
+
+    JoyControlTaskParameter_t joy_control_param = {
+      .xJoystickQueue = xJoystickQueue,
+    };
+    xTaskCreate(joy_control_task, "joy_control_task", 2048, &joy_control_param, 14, NULL);
   }
 }
