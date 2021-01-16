@@ -37,6 +37,7 @@ void joy_control_task(void* pJoyControlTaskParameter)
 
   // Retrieve the first new joystick position posted after our startup, this
   // position is treated as center. Power cycle to re-center the joystick.
+  // Which will need to be done often for poor quality joysticks that drift.
   if (pdTRUE != xQueueReceive(xJoystickQueue, &joyData, pdMS_TO_TICKS(1000)))
   {
     printf("ERROR: joy_control_task did not receive joystick data within one second of startup.");
