@@ -43,7 +43,7 @@ static const adc_bits_width_t joystick_precision = ADC_WIDTH_BIT_9;
 static const adc_atten_t    joystick_attenuation = ADC_ATTEN_DB_11;
 
 // Amount of time to wait between reads, in milliseconds.
-static const int            joystick_read_period   = 50;
+static const int            joystick_read_period   = 20;
 
 // Joystick data will be distributed via a FreeRTOS queue
 // * Caller is responsible for allocating a queue for this data type and
