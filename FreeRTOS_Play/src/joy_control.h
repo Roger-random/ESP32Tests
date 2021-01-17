@@ -1,7 +1,6 @@
 #ifndef INC_JOY_CONTROL_H
 #define INC_JOY_CONTROL_H
 #include <stdio.h>
-#include <float.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -9,9 +8,18 @@
 
 #include "joystick.h"
 
+typedef struct xChassisMessage
+{
+  TickType_t  timeStamp;
+  int32_t     iMotorA;
+  int32_t     iMotorB;
+  bool        bBrake;
+} Chassis_t;
+
 typedef struct xJoyControlTaskParameter
 {
   QueueHandle_t xJoystickQueue;
+  QueueHandle_t xChassisQueue;
 } JoyControlTaskParameter_t;
 
 /**

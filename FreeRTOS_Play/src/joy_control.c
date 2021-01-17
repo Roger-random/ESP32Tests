@@ -19,12 +19,11 @@ int32_t joystick_range_normalization(uint32_t uiRaw, uint32_t uiMid, uint32_t ui
 void joy_control_task(void* pJoyControlTaskParameter)
 {
   Joystick_t joyData;
-  TickType_t tickCount;
+  Chassis_t  chassisCommand;
   uint32_t   uiXmid, uiXnull, uiXmax; // Assumption: min is always zero
   uint32_t   uiYmid, uiYnull, uiYmax; // Assumption: min is always zero
-  int32_t    iX, iXold;
-  int32_t    iY, iYold;
-  bool       buttonOld;
+  int32_t    iX;
+  int32_t    iY;
 
   // Retrieve handles to data input/output queues
   if (NULL == pJoyControlTaskParameter)
@@ -34,77 +33,56 @@ void joy_control_task(void* pJoyControlTaskParameter)
   }
   JoyControlTaskParameter_t *pParam = (JoyControlTaskParameter_t*)pJoyControlTaskParameter;
   QueueHandle_t xJoystickQueue = pParam->xJoystickQueue;
+  QueueHandle_t xChassisQueue = pParam->xChassisQueue;
 
-  // Retrieve the first new joystick position posted after our startup, this
-  // position is treated as center. Power cycle to re-center the joystick.
-  // Which will need to be done often for poor quality joysticks that drift.
+  // Retrieve the first new joystick position posted after our startup.
   if (pdTRUE != xQueueReceive(xJoystickQueue, &joyData, pdMS_TO_TICKS(1000)))
   {
     printf("ERROR: joy_control_task did not receive joystick data within one second of startup.");
     vTaskDelete(NULL); // Delete self.
   }
 
-  tickCount = joyData.timeStamp;
+  // This first joystick position is treated as center. In order to re-center
+  // the joystick, we'll need to stop the existing instance of this task and
+  // start a new instance. This can be done by power cycling the ESP32 or via
+  // FreeRTOS APIs.
+  // Re-centering will need to be done occasionally for low quality joysticks
+  // that drift, but not often enough to justifying cluttering up this
+  // exploration code project.
   uiXmid = joyData.uiX;
   uiYmid = joyData.uiY;
-  iXold = uiXmid;
-  iYold = uiYmid;
-  buttonOld = joyData.buttonUp;
 
   // Initial maximum values are double the presumably mid positions, will adjust as we go.
   uiXmax = uiXmid*2;
   uiYmax = uiYmid*2;
 
-  // Size of null zone
+  // Size of null zone. When using good joysticks this can be smaller (1/50,
+  // 1/100) and for bad joysticks this may need to be larger (1/10, 1/5).
   uiXnull = uiXmid / 20;
   uiYnull = uiYmid / 20;
 
+  // Setup complete, start processing loop.
   while(true)
   {
-    if (pdTRUE == xQueuePeek(xJoystickQueue, &joyData, 0))
+    if (pdTRUE == xQueuePeek(xJoystickQueue, &joyData, 1000))
     {
-      if (joyData.timeStamp == tickCount)
+      if (joyData.uiX > uiXmax)
       {
-        if (xTaskGetTickCount() > tickCount+pdMS_TO_TICKS(2500))
-        {
-          // TODO: handle xTaskGetTickCount() overflow to zero.
-          printf("ERROR: No joystick data for some time, should probably stop.");
-        }
+        uiXmax = joyData.uiX;
       }
-      else
+      iX = joystick_range_normalization(joyData.uiX, uiXmid, uiXmax, uiXnull);
+
+      if (joyData.uiY > uiYmax)
       {
-        if (joyData.uiX > uiXmax)
-        {
-          uiXmax = joyData.uiX;
-        }
-        iX = joystick_range_normalization(joyData.uiX, uiXmid, uiXmax, uiXnull);
-
-        if (joyData.uiY > uiYmax)
-        {
-          uiYmax = joyData.uiY;
-        }
-        iY = joystick_range_normalization(joyData.uiY, uiYmid, uiYmax, uiYnull);
-
-        if (iX != iXold || iY != iYold || joyData.buttonUp != buttonOld)
-        {
-          printf("joy_control (%d, %d)", iX, iY);
-
-          if (joyData.buttonUp)
-          {
-            printf("\n");
-          }
-          else
-          {
-            printf(" pressed\n");
-          }
-
-          iXold = iX;
-          iYold = iY;
-          buttonOld = joyData.buttonUp;
-        }
-
-        tickCount = joyData.timeStamp;
+        uiYmax = joyData.uiY;
       }
+      iY = joystick_range_normalization(joyData.uiY, uiYmid, uiYmax, uiYnull);
+
+      chassisCommand.timeStamp = xTaskGetTickCount();
+      chassisCommand.iMotorA = iX;
+      chassisCommand.iMotorB = iY;
+      chassisCommand.bBrake  = !joyData.buttonUp;
+      xQueueOverwrite(xChassisQueue, &chassisCommand);
     }
     else
     {
