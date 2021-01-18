@@ -41,6 +41,18 @@ void motor_l298n_task(void* pvMotorTaskParameter)
   };
   gpio_config(&io_conf);
 
+  // Set up MCPWM peripheral to generate PWM velocity control on ENA and ENB
+  mcpwm_gpio_init(l298n_mcpwm_unit, MCPWM0A, l298n_ena);
+  mcpwm_gpio_init(l298n_mcpwm_unit, MCPWM0B, l298n_enb);
+  mcpwm_config_t mcpwm_config = {
+    .frequency = l298n_mcpwm_freq,
+    .cmpr_a = 0,
+    .cmpr_b = 0,
+    .counter_mode = MCPWM_UP_COUNTER,
+    .duty_mode = MCPWM_DUTY_MODE_0, // ACTIVE = HIGH
+  };
+  mcpwm_init(l298n_mcpwm_unit, l298n_mcpwm_timer, &mcpwm_config);
+
   // L298N control loop
   BaseType_t xResult;
   Chassis_t xMotorCommands;
@@ -51,19 +63,28 @@ void motor_l298n_task(void* pvMotorTaskParameter)
     if (pdTRUE == xResult)
     {
       // Uncomment next line for diagnostic output
-      printf("Motor command A @ %d, B @ %d, Brake %d\n", xMotorCommands.iMotorA, xMotorCommands.iMotorB, xMotorCommands.bBrake);
+      // printf("Motor command A @ %d, B @ %d, Brake %d\n", xMotorCommands.iMotorA, xMotorCommands.iMotorB, xMotorCommands.bBrake);
 
       if (xMotorCommands.bBrake)
       {
+        mcpwm_set_signal_high(l298n_mcpwm_unit, l298n_mcpwm_timer, MCPWM_OPR_A);
         gpio_set_level(l298n_in1, 1);
         gpio_set_level(l298n_in2, 1);
+        mcpwm_set_signal_high(l298n_mcpwm_unit, l298n_mcpwm_timer, MCPWM_OPR_B);
         gpio_set_level(l298n_in3, 1);
         gpio_set_level(l298n_in4, 1);
       }
       else
       {
+        // If we were in brake mode earlier, need to switch back to duty mode.
+        mcpwm_set_duty_type(l298n_mcpwm_unit, l298n_mcpwm_timer, MCPWM_OPR_A, MCPWM_DUTY_MODE_0);
+        mcpwm_set_duty_type(l298n_mcpwm_unit, l298n_mcpwm_timer, MCPWM_OPR_B, MCPWM_DUTY_MODE_0);
+
+        // Set duty cycle and direction for each L298N motor
         set_direction(xMotorCommands.iMotorA, l298n_in1, l298n_in2);
+        mcpwm_set_duty(l298n_mcpwm_unit, l298n_mcpwm_timer, MCPWM_OPR_A, abs(xMotorCommands.iMotorA) * duty_cycle_max / 100);
         set_direction(xMotorCommands.iMotorB, l298n_in3, l298n_in4);
+        mcpwm_set_duty(l298n_mcpwm_unit, l298n_mcpwm_timer, MCPWM_OPR_B, abs(xMotorCommands.iMotorB) * duty_cycle_max / 100);
       }
     }
 
