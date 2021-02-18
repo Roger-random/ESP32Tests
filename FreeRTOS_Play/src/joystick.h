@@ -10,6 +10,8 @@
 #include "driver/adc.h"
 #include "driver/gpio.h"
 
+#include "soc/adc_channel.h"
+
 // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/adc.html
 //
 // ESP32 analog read configuration isn't "Set GPIO [X] to analog input mode"
