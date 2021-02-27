@@ -21,7 +21,6 @@ static const gpio_num_t drv8833_bin2 = GPIO_NUM_16;
 
 // MCPWM peripheral components to use
 static const mcpwm_unit_t  drv8833_mcpwm_unit  = MCPWM_UNIT_0;
-static const mcpwm_timer_t drv8833_mcpwm_timer = MCPWM_TIMER_0;
 static const uint32_t      drv8833_mcpwm_freq  = 50000;
 
 // Duty cycle limit: restrict duty cycle to be no greater than this value.

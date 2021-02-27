@@ -1,26 +1,26 @@
 #include "motor_drv8833.h"
 
-void set_channel(bool bBrake, int32_t iSpeed, mcpwm_generator_t gen1, mcpwm_generator_t gen2)
+void set_channel(bool bBrake, int32_t iSpeed, mcpwm_timer_t timer)
 {
   if (bBrake)
   {
-    mcpwm_set_duty(drv8833_mcpwm_unit, drv8833_mcpwm_timer, gen1, 100);
-    mcpwm_set_duty(drv8833_mcpwm_unit, drv8833_mcpwm_timer, gen2, 100);
+    mcpwm_set_duty(drv8833_mcpwm_unit, timer, MCPWM_GEN_A, 100);
+    mcpwm_set_duty(drv8833_mcpwm_unit, timer, MCPWM_GEN_B, 100);
   }
   else if (iSpeed > 0)
   {
-    mcpwm_set_duty(drv8833_mcpwm_unit, drv8833_mcpwm_timer, gen1, abs(iSpeed) * duty_cycle_max / 100);
-    mcpwm_set_duty(drv8833_mcpwm_unit, drv8833_mcpwm_timer, gen2, 0);
+    mcpwm_set_duty(drv8833_mcpwm_unit, timer, MCPWM_GEN_A, abs(iSpeed) * duty_cycle_max / 100);
+    mcpwm_set_duty(drv8833_mcpwm_unit, timer, MCPWM_GEN_B, 0);
   }
   else if (iSpeed < 0)
   {
-    mcpwm_set_duty(drv8833_mcpwm_unit, drv8833_mcpwm_timer, gen1, 0);
-    mcpwm_set_duty(drv8833_mcpwm_unit, drv8833_mcpwm_timer, gen2, abs(iSpeed) * duty_cycle_max / 100);
+    mcpwm_set_duty(drv8833_mcpwm_unit, timer, MCPWM_GEN_A, 0);
+    mcpwm_set_duty(drv8833_mcpwm_unit, timer, MCPWM_GEN_B, abs(iSpeed) * duty_cycle_max / 100);
   }
   else
   {
-    mcpwm_set_duty(drv8833_mcpwm_unit, drv8833_mcpwm_timer, gen1, 0);
-    mcpwm_set_duty(drv8833_mcpwm_unit, drv8833_mcpwm_timer, gen2, 0);
+    mcpwm_set_duty(drv8833_mcpwm_unit, timer, MCPWM_GEN_A, 0);
+    mcpwm_set_duty(drv8833_mcpwm_unit, timer, MCPWM_GEN_B, 0);
   }
 }
 
@@ -47,7 +47,8 @@ void motor_drv8833_task(void* pvMotorTaskParameter)
     .counter_mode = MCPWM_UP_COUNTER,
     .duty_mode = MCPWM_DUTY_MODE_0,
   };
-  mcpwm_init(drv8833_mcpwm_unit, drv8833_mcpwm_timer, &mcpwm_config);
+  mcpwm_init(drv8833_mcpwm_unit, MCPWM_TIMER_0, &mcpwm_config);
+  mcpwm_init(drv8833_mcpwm_unit, MCPWM_TIMER_1, &mcpwm_config);
 
   // DRV8833 control loop
   BaseType_t xResult;
@@ -58,8 +59,8 @@ void motor_drv8833_task(void* pvMotorTaskParameter)
     xResult = xQueuePeek(xMotorControlQueue, &xMotorCommands, 0);
     if (pdTRUE == xResult)
     {
-      //set_channel(xMotorCommands.bBrake, xMotorCommands.iMotorA, MCPWM_GEN_A, MCPWM_GEN_B);
-      set_channel(xMotorCommands.bBrake, xMotorCommands.iMotorB, MCPWM_GEN_A, MCPWM_GEN_B);
+      set_channel(xMotorCommands.bBrake, xMotorCommands.iMotorA, MCPWM_TIMER_0);
+      set_channel(xMotorCommands.bBrake, xMotorCommands.iMotorB, MCPWM_TIMER_1);
     }
 
     vTaskDelay(pdMS_TO_TICKS(100));
