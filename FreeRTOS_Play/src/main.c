@@ -13,7 +13,7 @@
 
 #include "joystick.h"
 #include "joy_control.h"
-#include "motor_l298n.h"
+#include "motor_drv8833.h"
 #include "status_led.h"
 
 void app_main()
@@ -42,6 +42,6 @@ void app_main()
     };
     xTaskCreate(joy_control_task, "joy_control_task", 2048, &joy_control_param, 14, NULL);
 
-    xTaskCreate(motor_l298n_task, "motor_l298n_task", 2048, xChassisQueue, 13, NULL);
+    xTaskCreate(motor_drv8833_task, "motor_drv8833_task", 2048, xChassisQueue, 13, NULL);
   }
 }
