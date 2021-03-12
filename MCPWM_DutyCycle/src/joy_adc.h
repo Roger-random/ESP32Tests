@@ -64,7 +64,7 @@ static const adc_atten_t    joystick_attenuation = ADC_ATTEN_DB_11;
 static const TickType_t     joystick_ranging_read_period = pdMS_TO_TICKS(10);
 
 // Number of ticks to wait between normal read operations.
-static const TickType_t     joystick_read_period = pdMS_TO_TICKS(250);
+static const TickType_t     joystick_read_period = pdMS_TO_TICKS(100);
 
 // Historically lowest value of X axis
 uint32_t uiXlow;
