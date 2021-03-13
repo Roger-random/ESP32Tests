@@ -1,7 +1,7 @@
 # Interactive MCPWM Duty Cycle Explorer
 
 This is a tool for exploring a motor's response to different MCPWM duty cycles.
-Emits six DRV8833 control signals simultaneously so up to six motors could
+Emits six DRV8833 control signal pairs simultaneously so up to six motors could
 be tested in parallel to see how much variation there is between motors in the
 same batch. See src/duty_cycle.h for GPIO pin assignments.
 
@@ -16,6 +16,6 @@ cycle incremental rate. 10%, 1% or 0.1%. Movement along the other axis
 adjusts the duty cycle up or down by the incremental rate. The button toggles
 between the active duty cycle and 0 duty cycle to turn off motor.
 
-This program is only useful when running with serial monitor active. The
-currently applicable increment rate and the currently active duty cycle
-are printed to the serial port.
+The currently applicable increment rate and the currently active duty cycle
+are printed to the serial port, so running with serial monitor active is
+highly recommended.

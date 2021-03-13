@@ -17,3 +17,4 @@ same range we can expect to receive from `knob` ADC. (12 bits or up to 4096 posi
 * `StepperVelocity` - Reads value of potentiometer using ADC and outputs stepper
 control STEP signals using LEDC PWM set to 50% duty cycle but with varying frequency.
 * `FreeRTOS_Play` - learning FreeRTOS APIs.
+* `MCPWM_DutyCycle` - Interactive MCPWM duty cycle explorer.
