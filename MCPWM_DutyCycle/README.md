@@ -19,3 +19,10 @@ between the active duty cycle and 0 duty cycle to turn off motor.
 The currently applicable increment rate and the currently active duty cycle
 are printed to the serial port, so running with serial monitor active is
 highly recommended.
+
+-----
+
+More details about this project on my personal blog site, as well as context
+from the post leading up to this one.
+
+https://newscrewdriver.com/2021/03/15/interactive-mcpwm-duty-cycle-explorer/
