@@ -6,6 +6,8 @@ static httpd_handle_t server_handle;
 static EventGroupHandle_t s_wifi_event_group;
 
 static const char *TAG = "http file server";
+static const char *joy_msg_send = "joy_msg_send";
+static const char *joy_msg_receive = "joy_msg_receive";
 
 // We can spend effort making code memory-efficient, or we can just blow
 // a chunk of RAM to make code trivial.
@@ -105,13 +107,6 @@ static const httpd_uri_t index_html = {
   .user_ctx = NULL
 };
 
-static const httpd_uri_t site_root = {
-  .uri      = "/",
-  .method   = HTTP_GET,
-  .handler  = index_html_get_handler,
-  .user_ctx = NULL
-};
-
 static esp_err_t wsplay_css_get_handler(httpd_req_t *req)
 {
   uint32_t readSize = 0;
@@ -148,6 +143,39 @@ static const httpd_uri_t wsplay_js = {
   .user_ctx = NULL
 };
 
+static esp_err_t websocket_root_get_handler(httpd_req_t *req)
+{
+  if (req->method == HTTP_GET) {
+    ESP_LOGI(TAG, "Handshake done, the new connection was opened");
+    return ESP_OK;
+  }
+  httpd_ws_frame_t ws_pkt;
+  memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+  ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+  ws_pkt.payload = (uint8_t*)readBuf;
+  ESP_ERROR_CHECK(httpd_ws_recv_frame(req, &ws_pkt, readBufSize));
+  if (ws_pkt.len < readBufSize) {
+    readBuf[ws_pkt.len] = 0; // null termination
+    if (0 == strcmp(readBuf, joy_msg_send)) {
+      ws_pkt.payload = (uint8_t*)joy_msg_receive;
+      ws_pkt.len = strlen(joy_msg_receive);
+      return httpd_ws_send_frame(req, &ws_pkt);
+    }
+    ESP_LOGI(TAG, "Got packet with message: %s", ws_pkt.payload);
+  } else {
+    ESP_LOGE(TAG, "Ignoring oversized WebSocket packet");
+  }
+  return ESP_OK;
+}
+
+static const httpd_uri_t websocket_root = {
+  .uri      = "/",
+  .method   = HTTP_GET,
+  .handler  = websocket_root_get_handler,
+  .user_ctx = NULL,
+  .is_websocket = true
+};
+
 void http_file_server_task(void* pvParameters)
 {
   spiffs_init();
@@ -162,10 +190,10 @@ void http_file_server_task(void* pvParameters)
   if (httpd_start(&server_handle, &config) == ESP_OK) {
       // Set URI handlers
       ESP_LOGI(TAG, "Registering URI handlers");
-      httpd_register_uri_handler(server_handle, &site_root);
       httpd_register_uri_handler(server_handle, &index_html);
       httpd_register_uri_handler(server_handle, &wsplay_css);
       httpd_register_uri_handler(server_handle, &wsplay_js);
+      httpd_register_uri_handler(server_handle, &websocket_root);
       // TODO: Wait for something to shut down server. Right now we just spin
       while(true) {
         vTaskDelay(portMAX_DELAY);
