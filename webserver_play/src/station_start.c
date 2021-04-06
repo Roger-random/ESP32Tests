@@ -122,9 +122,11 @@ void station_start_task(void* pvParameter)
   ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
   wifi_init_sta();
 
+  wifi_ap_record_t ap_record;
   while(true)
   {
-    printf("Station start task running.\n");
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    ESP_ERROR_CHECK(esp_wifi_sta_get_ap_info(&ap_record));
+    printf("RSSI %d\n", ap_record.rssi);
+    vTaskDelay(pdMS_TO_TICKS(250));
   }
 }

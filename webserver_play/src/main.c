@@ -7,5 +7,5 @@
 
 void app_main()
 {
-  xTaskCreate(station_start_task, "station_start_task", 1024*8, NULL, 20, NULL);
+  xTaskCreate(station_start_task, "station_start_task", 1024*3, NULL, 20, NULL);
 }
