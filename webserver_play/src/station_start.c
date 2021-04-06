@@ -43,7 +43,6 @@ void wifi_init_sta(void)
 
     ESP_ERROR_CHECK(esp_netif_init());
 
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_create_default_wifi_sta();
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -69,7 +68,7 @@ void wifi_init_sta(void)
             /* Setting a password implies station will connect to all security modes including WEP/WPA.
              * However these modes are deprecated and not advisable to be used. Incase your Access point
              * doesn't support WPA2, these mode can be enabled by commenting below line */
-	     .threshold.authmode = WIFI_AUTH_WPA2_PSK,
+	          .threshold.authmode = WIFI_AUTH_WPA2_PSK,
 
             .pmf_cfg = {
                 .capable = true,
@@ -122,11 +121,8 @@ void station_start_task(void* pvParameter)
   ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
   wifi_init_sta();
 
-  wifi_ap_record_t ap_record;
-  while(true)
-  {
-    ESP_ERROR_CHECK(esp_wifi_sta_get_ap_info(&ap_record));
-    printf("RSSI %d\n", ap_record.rssi);
-    vTaskDelay(pdMS_TO_TICKS(250));
+  // TODO: Wait on (what?) to shut down WiFi. Currently never shut down.
+  while(true) {
+    vTaskDelay(portMAX_DELAY);
   }
 }
