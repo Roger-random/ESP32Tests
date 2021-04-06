@@ -1,7 +1,11 @@
 #include "http_file_server.h"
 
+static httpd_handle_t server_handle;
+
 /* Waiting for certain WiFi events before continuing */
 static EventGroupHandle_t s_wifi_event_group;
+
+static const char *TAG = "http file server";
 
 static void wifi_connected_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
@@ -28,15 +32,42 @@ void wait_for_wifi_ready()
   vEventGroupDelete(s_wifi_event_group);
 }
 
+static esp_err_t hello_get_handler(httpd_req_t *req)
+{
+  const char* strTest = "HTTP File Server Test poombah\n";
+  //ESP_ERROR_CHECK(httpd_resp_set_hdr(req, "cache-control", "max-age=1"));
+  ESP_ERROR_CHECK(httpd_resp_set_type(req, "text/html"));
+  ESP_ERROR_CHECK(httpd_resp_send(req, strTest, strlen(strTest)));
+
+  return ESP_OK;
+}
+
+static const httpd_uri_t hello = {
+  .uri      = "/hello",
+  .method   = HTTP_GET,
+  .handler  = hello_get_handler,
+  .user_ctx = NULL
+};
+
 void http_file_server_task(void* pvParameters)
 {
   wait_for_wifi_ready();
 
-  // Test loop
-  wifi_ap_record_t ap_record;
-  while(true) {
-    ESP_ERROR_CHECK(esp_wifi_sta_get_ap_info(&ap_record));
-    printf("RSSI %d\n", ap_record.rssi);
-    vTaskDelay(pdMS_TO_TICKS(250));
+  httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+  config.lru_purge_enable = true;
+
+  // Start the httpd server
+  ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
+  if (httpd_start(&server_handle, &config) == ESP_OK) {
+      // Set URI handlers
+      ESP_LOGI(TAG, "Registering URI handlers");
+      httpd_register_uri_handler(server_handle, &hello);
+      // TODO: Wait for something to shut down server. Right now we just spin
+      while(true) {
+        vTaskDelay(portMAX_DELAY);
+      }
   }
+
+  ESP_LOGI(TAG, "Error starting server!");
+  vTaskDelete(NULL);
 }
