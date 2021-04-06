@@ -7,6 +7,11 @@ static EventGroupHandle_t s_wifi_event_group;
 
 static const char *TAG = "http file server";
 
+// We can spend effort making code memory-efficient, or we can just blow
+// a chunk of RAM to make code trivial.
+#define readBufSize 1024*16
+static char readBuf[readBufSize];
+
 static void wifi_connected_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
   if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
@@ -32,25 +37,121 @@ void wait_for_wifi_ready()
   vEventGroupDelete(s_wifi_event_group);
 }
 
-static esp_err_t hello_get_handler(httpd_req_t *req)
+void spiffs_init()
 {
-  const char* strTest = "HTTP File Server Test poombah\n";
-  //ESP_ERROR_CHECK(httpd_resp_set_hdr(req, "cache-control", "max-age=1"));
+    ESP_LOGI(TAG, "Initializing SPIFFS");
+
+    esp_vfs_spiffs_conf_t conf = {
+      .base_path = "/static",
+      .partition_label = NULL,
+      .max_files = 5,
+      .format_if_mount_failed = false
+    };
+
+    // Use settings defined above to initialize and mount SPIFFS filesystem.
+    // Note: esp_vfs_spiffs_register is an all-in-one convenience function.
+    esp_err_t ret = esp_vfs_spiffs_register(&conf);
+
+    if (ret != ESP_OK) {
+        if (ret == ESP_FAIL) {
+            ESP_LOGE(TAG, "Failed to mount or format filesystem");
+        } else if (ret == ESP_ERR_NOT_FOUND) {
+            ESP_LOGE(TAG, "Failed to find SPIFFS partition");
+        } else {
+            ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
+        }
+        return;
+    }
+
+    size_t total = 0, used = 0;
+    ret = esp_spiffs_info(conf.partition_label, &total, &used);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret));
+    } else {
+        ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
+    }
+}
+
+static uint32_t read_spiff_buffer(const char *file_name)
+{
+  uint32_t readSize = 0;
+  FILE* f = fopen(file_name, "r");
+  if (f == NULL) {
+      ESP_LOGE(TAG, "Failed to open file for reading");
+      return 0;
+  }
+
+  readSize = fread(readBuf, sizeof(char), readBufSize, f);
+  fclose(f);
+
+  return readSize;
+}
+
+static esp_err_t index_html_get_handler(httpd_req_t *req)
+{
+  uint32_t readSize = 0;
+  ESP_ERROR_CHECK(httpd_resp_set_hdr(req, "cache-control", "max-age=1")); // For development
   ESP_ERROR_CHECK(httpd_resp_set_type(req, "text/html"));
-  ESP_ERROR_CHECK(httpd_resp_send(req, strTest, strlen(strTest)));
+  readSize = read_spiff_buffer("/static/index.html");
+  ESP_ERROR_CHECK(httpd_resp_send(req, readBuf, readSize));
 
   return ESP_OK;
 }
 
-static const httpd_uri_t hello = {
-  .uri      = "/hello",
+static const httpd_uri_t index_html = {
+  .uri      = "/index.html",
   .method   = HTTP_GET,
-  .handler  = hello_get_handler,
+  .handler  = index_html_get_handler,
+  .user_ctx = NULL
+};
+
+static const httpd_uri_t site_root = {
+  .uri      = "/",
+  .method   = HTTP_GET,
+  .handler  = index_html_get_handler,
+  .user_ctx = NULL
+};
+
+static esp_err_t wsplay_css_get_handler(httpd_req_t *req)
+{
+  uint32_t readSize = 0;
+  ESP_ERROR_CHECK(httpd_resp_set_hdr(req, "cache-control", "max-age=1")); // For development
+  ESP_ERROR_CHECK(httpd_resp_set_type(req, "text/css"));
+  readSize = read_spiff_buffer("/static/wsplay.css");
+  ESP_ERROR_CHECK(httpd_resp_send(req, readBuf, readSize));
+
+  return ESP_OK;
+}
+
+static const httpd_uri_t wsplay_css = {
+  .uri      = "/wsplay.css",
+  .method   = HTTP_GET,
+  .handler  = wsplay_css_get_handler,
+  .user_ctx = NULL
+};
+
+static esp_err_t wsplay_js_get_handler(httpd_req_t *req)
+{
+  uint32_t readSize = 0;
+  ESP_ERROR_CHECK(httpd_resp_set_hdr(req, "cache-control", "max-age=1")); // For development
+  ESP_ERROR_CHECK(httpd_resp_set_type(req, "application/javascript"));
+  readSize = read_spiff_buffer("/static/wsplay.js");
+  ESP_ERROR_CHECK(httpd_resp_send(req, readBuf, readSize));
+
+  return ESP_OK;
+}
+
+static const httpd_uri_t wsplay_js = {
+  .uri      = "/wsplay.js",
+  .method   = HTTP_GET,
+  .handler  = wsplay_js_get_handler,
   .user_ctx = NULL
 };
 
 void http_file_server_task(void* pvParameters)
 {
+  spiffs_init();
+
   wait_for_wifi_ready();
 
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -61,7 +162,10 @@ void http_file_server_task(void* pvParameters)
   if (httpd_start(&server_handle, &config) == ESP_OK) {
       // Set URI handlers
       ESP_LOGI(TAG, "Registering URI handlers");
-      httpd_register_uri_handler(server_handle, &hello);
+      httpd_register_uri_handler(server_handle, &site_root);
+      httpd_register_uri_handler(server_handle, &index_html);
+      httpd_register_uri_handler(server_handle, &wsplay_css);
+      httpd_register_uri_handler(server_handle, &wsplay_js);
       // TODO: Wait for something to shut down server. Right now we just spin
       while(true) {
         vTaskDelay(portMAX_DELAY);
