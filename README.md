@@ -5,7 +5,7 @@
 Stripped out details about accurate conversion to actual voltage values. This experiment
 only concerns about obtaining a range of integer values from an analog reading and skips
 the conversion to actual voltage.
-* `servo` - Use 
+* `servo` - Use
 [LED Controller (LEDC)](https://docs.espressif.com/projects/esp-idf/en/stable/api-reference/peripherals/ledc.html)
 PWM signal to drive hobby RC servo motor position based on `knob` readings.
 Code fragments cut and pasted from
@@ -18,3 +18,4 @@ same range we can expect to receive from `knob` ADC. (12 bits or up to 4096 posi
 control STEP signals using LEDC PWM set to 50% duty cycle but with varying frequency.
 * `FreeRTOS_Play` - learning FreeRTOS APIs.
 * `MCPWM_DutyCycle` - Interactive MCPWM duty cycle explorer.
+* `webserver_play` - learning how to turn an ESP32 into a small web server.
