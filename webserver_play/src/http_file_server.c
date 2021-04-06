@@ -25,6 +25,7 @@ void wait_for_wifi_ready()
 
   // No longer need to listen to WiFi event
   ESP_ERROR_CHECK(esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, instance_got_ip));
+  vEventGroupDelete(s_wifi_event_group);
 }
 
 void http_file_server_task(void* pvParameters)
