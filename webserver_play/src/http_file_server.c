@@ -161,7 +161,12 @@ static esp_err_t websocket_root_get_handler(httpd_req_t *req)
       ws_pkt.len = strlen(joy_msg_receive);
       return httpd_ws_send_frame(req, &ws_pkt);
     }
-    ESP_LOGI(TAG, "Got packet with message: %s", ws_pkt.payload);
+    cJSON *root = cJSON_Parse(readBuf);
+    cJSON *axes = cJSON_GetObjectItem(root,"axes");
+    cJSON *axes0 = cJSON_GetArrayItem(axes, 0);
+    cJSON *axes1 = cJSON_GetArrayItem(axes, 1);
+    ESP_LOGI(TAG, "Steer %+.2f speed %+.2f", axes0->valuedouble, axes1->valuedouble);
+    cJSON_Delete(root);
   } else {
     ESP_LOGE(TAG, "Ignoring oversized WebSocket packet");
   }

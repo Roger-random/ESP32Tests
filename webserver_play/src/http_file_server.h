@@ -13,6 +13,8 @@
 #include "esp_system.h"
 #include "esp_wifi.h"
 
+#include "cJSON.h"
+
 /* Flags used in event group */
 #define WIFI_CONNECTED_BIT BIT0
 
