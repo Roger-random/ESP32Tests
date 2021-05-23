@@ -2,6 +2,7 @@
 #include "soc/adc_channel.h"
 
 #include "esp_log.h"
+#include "esp_sleep.h"
 #include "esp_system.h"
 
 #include "mqtt_client.h"
@@ -75,10 +76,12 @@ static void update_digital_out(cJSON *json_root, char* label, gpio_num_t pin)
   else if (cJSON_IsTrue(pinUpdate))
   {
     ESP_ERROR_CHECK(gpio_set_level(pin, true));
+    ESP_ERROR_CHECK(gpio_hold_en(pin));
   }
   else if (cJSON_IsFalse(pinUpdate))
   {
     ESP_ERROR_CHECK(gpio_set_level(pin, false));
+    ESP_ERROR_CHECK(gpio_hold_en(pin));
   }
   else
   {
@@ -154,6 +157,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
 void app_main()
 {
+  esp_mqtt_client_handle_t client = NULL;
+
   analog_input_setup();
   digital_output_setup();
 
@@ -165,9 +170,12 @@ void app_main()
       .uri = MQTT_URI,
     };
 
-    esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
-    ESP_ERROR_CHECK(esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL));
-    ESP_ERROR_CHECK(esp_mqtt_client_start(client));
+    client = esp_mqtt_client_init(&mqtt_cfg);
+    if (NULL != client)
+    {
+      ESP_ERROR_CHECK(esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL));
+      ESP_ERROR_CHECK(esp_mqtt_client_start(client));
+    }
   }
 
   EventBits_t expected = DIGITAL_OUT_RECEIVED;
@@ -181,8 +189,13 @@ void app_main()
     ESP_LOGI(TAG, "TODO list was not completed within timeout.");
   }
 
-  while(true)
+  if (NULL != client)
   {
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    esp_mqtt_client_disconnect(client);
+    client = NULL;
   }
+  esp_wifi_stop();
+
+  gpio_deep_sleep_hold_en();
+  esp_deep_sleep(60 * 1000000LL);
 }
