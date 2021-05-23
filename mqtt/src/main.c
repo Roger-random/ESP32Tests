@@ -12,6 +12,12 @@
 
 static const char *TAG = "MQTT test";
 
+// Group of events signifying items we expected to do before going to sleep
+static EventGroupHandle_t s_todo_group;
+
+// The before-sleep to-do list
+#define DIGITAL_OUT_RECEIVED BIT0
+
 static void analog_input_setup()
 {
   ESP_ERROR_CHECK(adc1_config_width(ADC_WIDTH_BIT_12));
@@ -97,6 +103,8 @@ static void parse_mqtt_event(esp_mqtt_event_handle_t event)
       update_digital_out(json_root, "gpio26", GPIO_NUM_26);
       update_digital_out(json_root, "gpio27", GPIO_NUM_27);
       cJSON_Delete(json_root);
+
+      xEventGroupSetBits(s_todo_group, DIGITAL_OUT_RECEIVED);
     }
     else
     {
@@ -149,21 +157,32 @@ void app_main()
   analog_input_setup();
   digital_output_setup();
 
-  ESP_LOGI(TAG, "Startup");
-  station_start();
-  ESP_LOGI(TAG, "Station started");
+  s_todo_group = xEventGroupCreate();
 
-  esp_mqtt_client_config_t mqtt_cfg = {
-    .uri = MQTT_URI,
-  };
+  if (ESP_OK == station_start())
+  {
+    esp_mqtt_client_config_t mqtt_cfg = {
+      .uri = MQTT_URI,
+    };
 
-  esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
-  ESP_ERROR_CHECK(esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL));
-  ESP_ERROR_CHECK(esp_mqtt_client_start(client));
+    esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
+    ESP_ERROR_CHECK(esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL));
+    ESP_ERROR_CHECK(esp_mqtt_client_start(client));
+  }
+
+  EventBits_t expected = DIGITAL_OUT_RECEIVED;
+  EventBits_t bits = xEventGroupWaitBits(s_todo_group, expected, pdFALSE, pdTRUE, pdMS_TO_TICKS(5000));
+  if (bits == expected)
+  {
+    ESP_LOGI(TAG, "TODO list was completed.");
+  }
+  else
+  {
+    ESP_LOGI(TAG, "TODO list was not completed within timeout.");
+  }
 
   while(true)
   {
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
-
 }
