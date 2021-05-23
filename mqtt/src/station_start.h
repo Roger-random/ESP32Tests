@@ -32,6 +32,6 @@ void station_start_task(void* pvParameter);
 /*
  * @brief Blocking call to initialize ESP32 WiFi in station mode
  */
-void station_start();
+esp_err_t station_start();
 
 #endif // #ifndef INC_STATION_START_H

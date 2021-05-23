@@ -49,8 +49,10 @@ static void event_handler(void* arg, esp_event_base_t event_base,
 /*
  * @brief Initializes ESP32 WiFi stack in STAtion mode
  */
-void wifi_init_sta(void)
+esp_err_t wifi_init_sta(void)
 {
+    esp_err_t result = ESP_OK;
+
     // Create event group used to signal WiFi startup events
     s_wifi_event_group = xEventGroupCreate();
 
@@ -114,19 +116,23 @@ void wifi_init_sta(void)
     } else if (bits & WIFI_FAIL_BIT) {
         ESP_LOGI(TAG, "Failed to connect to SSID:%s, password:%s",
                  ESP_WIFI_SSID, ESP_WIFI_PASS);
+        result = ESP_FAIL;
     } else {
         ESP_LOGE(TAG, "UNEXPECTED EVENT");
+        result = ESP_FAIL;
     }
 
     /* WiFi startup sequence complete. Success or fail, either way unsubscribe to startup events */
     ESP_ERROR_CHECK(esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, instance_got_ip));
     ESP_ERROR_CHECK(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, instance_any_id));
     vEventGroupDelete(s_wifi_event_group);
+
+    return result;
 }
 
 void station_start_task(void* pvParameter)
 {
-  station_start();
+  ESP_ERROR_CHECK(station_start());
 
   // TODO: Wait on (what?) to shut down WiFi. Currently never shut down.
   while(true) {
@@ -134,7 +140,7 @@ void station_start_task(void* pvParameter)
   }
 }
 
-void station_start()
+esp_err_t station_start()
 {
   //Initialize NVS
   esp_err_t ret = nvs_flash_init();
@@ -148,5 +154,5 @@ void station_start()
   ESP_ERROR_CHECK(esp_event_loop_create_default());
 
   ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
-  wifi_init_sta();
+  return wifi_init_sta();
 }
