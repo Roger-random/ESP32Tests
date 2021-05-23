@@ -6,11 +6,13 @@
 
 #include "mqtt_client.h"
 
+#include "cJSON.h"
+
 #include "station_start.h"
 
 static const char *TAG = "MQTT test";
 
-static void adc_setup()
+static void analog_input_setup()
 {
   ESP_ERROR_CHECK(adc1_config_width(ADC_WIDTH_BIT_12));
   ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_GPIO32_CHANNEL, ADC_ATTEN_DB_11));
@@ -19,6 +21,21 @@ static void adc_setup()
   ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_GPIO35_CHANNEL, ADC_ATTEN_DB_11));
   ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_GPIO36_CHANNEL, ADC_ATTEN_DB_11));
   ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_GPIO39_CHANNEL, ADC_ATTEN_DB_11));
+}
+
+static void digital_output_setup()
+{
+  gpio_config_t io_conf = {
+      .mode = GPIO_MODE_OUTPUT,
+      .intr_type = GPIO_INTR_DISABLE,
+      .pull_down_en = 0,
+      .pull_up_en = 0,
+      .pin_bit_mask = (1ULL<<GPIO_NUM_2) |
+                      (1ull<<GPIO_NUM_25) |
+                      (1ull<<GPIO_NUM_26) |
+                      (1ull<<GPIO_NUM_27),
+  };
+  ESP_ERROR_CHECK(gpio_config(&io_conf));
 }
 
 static int adc_publish(esp_mqtt_client_handle_t client)
@@ -41,6 +58,57 @@ static int adc_publish(esp_mqtt_client_handle_t client)
   return messageId;
 }
 
+static void update_digital_out(cJSON *json_root, char* label, gpio_num_t pin)
+{
+  cJSON *pinUpdate = cJSON_GetObjectItem(json_root, label);
+
+  if (NULL == pinUpdate)
+  {
+    ESP_LOGI(TAG, "No pin specification for %s", label);
+  }
+  else if (cJSON_IsTrue(pinUpdate))
+  {
+    ESP_ERROR_CHECK(gpio_set_level(pin, true));
+  }
+  else if (cJSON_IsFalse(pinUpdate))
+  {
+    ESP_ERROR_CHECK(gpio_set_level(pin, false));
+  }
+  else
+  {
+    ESP_LOGI(TAG, "Expected true or false to update pin %s", label);
+  }
+}
+
+static void parse_mqtt_event(esp_mqtt_event_handle_t event)
+{
+  if(strlen(MQTT_SUB) == event->topic_len)
+  {
+    if(0 == strncmp(MQTT_SUB, event->topic, strlen(MQTT_SUB)))
+    {
+      ESP_LOGI(TAG, "Processing data for subscribed event");
+
+      // cJSON failure mode is to return NULL. If NULL is passed in as first
+      // parameter, NULL will be returned. So we don't really need to check
+      // intermediate values for NULL, checking leaf objects are sufficient.
+      cJSON *json_root = cJSON_Parse(event->data);
+      update_digital_out(json_root, "gpio2", GPIO_NUM_2);
+      update_digital_out(json_root, "gpio25", GPIO_NUM_25);
+      update_digital_out(json_root, "gpio26", GPIO_NUM_26);
+      update_digital_out(json_root, "gpio27", GPIO_NUM_27);
+      cJSON_Delete(json_root);
+    }
+    else
+    {
+      ESP_LOGI(TAG, "MQTT event topic does not match. (want %s got %s) ignoring", MQTT_SUB, event->topic);
+    }
+  }
+  else
+  {
+    ESP_LOGI(TAG, "MQTT event topic isn't even the right length (want %d got %d) ignoring.", strlen(MQTT_SUB), event->topic_len);
+  }
+}
+
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
   ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%d", base, event_id);
@@ -56,8 +124,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
       break;
     case MQTT_EVENT_DATA:
       ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-      printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
-      printf("DATA=%.*s\r\n", event->data_len, event->data);
+      parse_mqtt_event(event);
       break;
     case MQTT_EVENT_SUBSCRIBED:
       ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
@@ -79,7 +146,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
 void app_main()
 {
-  adc_setup();
+  analog_input_setup();
+  digital_output_setup();
 
   ESP_LOGI(TAG, "Startup");
   station_start();
