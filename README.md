@@ -19,3 +19,7 @@ control STEP signals using LEDC PWM set to 50% duty cycle but with varying frequ
 * `FreeRTOS_Play` - learning FreeRTOS APIs.
 * `MCPWM_DutyCycle` - Interactive MCPWM duty cycle explorer.
 * `webserver_play` - learning how to turn an ESP32 into a small web server.
+* `mqtt` - turns ESP32 into a small MQTT-controlled I/O device. Publishes raw
+values of six analog input pins to one topic, and turns digital output pins on/off
+based on a subscribed topic. Then goes into deep sleep and wake up to do it again
+later. Has problems with holding output pins through waking up.
