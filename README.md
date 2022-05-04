@@ -23,3 +23,5 @@ control STEP signals using LEDC PWM set to 50% duty cycle but with varying frequ
 values of six analog input pins to one topic, and turns digital output pins on/off
 based on a subscribed topic. Then goes into deep sleep and wake up to do it again
 later. Has problems with holding output pins through waking up.
+* `bare_lcd_2digit` - Drives a two-digit 7-segment LCD salvaged from an
+electric blanket controller. PlatformIO/ESP-IDF/LEDC PWM
