@@ -2,7 +2,7 @@
 
 void lcd_voltage_task(void *arg)
 {
-    uint8_t duty_high = 31;
+    uint8_t duty_high = 28;
     uint8_t duty_mid = duty_high/2;
     uint8_t duty_low = 0;
 
