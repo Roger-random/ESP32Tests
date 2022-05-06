@@ -18,3 +18,11 @@ to each line as a minor guard against accidental contact to exposed wires.
 ![PCB bottom view](bottom.jpg)
 
 ![LCD showing 42](42.jpg)
+
+Here is the segment map, using color to delineate common pin separation.
+
+![LCD segment map](segments.jpg)
+
+Here is the same information, presented in a grayscale-friendly format.
+
+![LCD segment map for black-and-white](segmentsbw.jpg)
