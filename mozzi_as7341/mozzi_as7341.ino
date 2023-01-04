@@ -1,9 +1,19 @@
 /* This example shows to to read all channels from the AS7341 and print out reported values, but allow loop() to run while waiting for the readings */
 #include <Adafruit_AS7341.h>
 
+#include <MozziGuts.h>
+#include <Oscil.h> // oscillator template
+/*sine table for oscillators. choose others from mozzi
+if triangle wave, square wave, etc, desired*/
+#include <tables/sin2048_int8.h>
+#include <mozzi_midi.h>
+
 Adafruit_AS7341 as7341;
 //TwoWire myWire2(2);
 uint16_t readings[12];
+
+// Mozzi setup
+Oscil <2048, AUDIO_RATE> aSin(SIN2048_DATA);
 
 void setup()
 {
@@ -31,9 +41,13 @@ void setup()
   as7341.setGain(AS7341_GAIN_256X);
 
   as7341.startReading();
+
+  // Start Mozzi sine wave
+  aSin.setFreq(440);
+  startMozzi(CONTROL_RATE);
 }
 
-void loop()
+void updateControl()
 {
   bool timeOutFlag = yourTimeOutCheck();
   if(as7341.checkReadingProgress() || timeOutFlag )
@@ -54,10 +68,15 @@ void loop()
     Serial.println("Guess we'll start another reading right away but do some work in the meantime\n");
     as7341.startReading();
   }
+}
 
-  //Do some work in the loop
-  Serial.println("Working hard");
-  delay(500); //Hardly working
+int updateAudio(){
+  return aSin.next();
+}
+
+void loop()
+{
+  audioHook();
 }
 
 bool yourTimeOutCheck()
