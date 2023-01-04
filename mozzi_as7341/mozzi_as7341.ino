@@ -36,8 +36,8 @@ void setup()
     while (1) { delay(10); }
   }
 
-  as7341.setATIME(35);
-  as7341.setASTEP(10000); //This combination of ATIME and ASTEP gives an integration time of about 1sec, so with two integrations, that's 2 seconds for a complete set of readings
+  as7341.setATIME(100);
+  as7341.setASTEP(10);
   as7341.setGain(AS7341_GAIN_256X);
 
   as7341.startReading();
@@ -55,17 +55,11 @@ void updateControl()
     if(timeOutFlag)
     {} //Recover/restart/retc.
 
-    Serial.println("\nAha, the reading we started a few cycles back is finished, here it is:");
+//    Serial.println("\nAha, the reading we started a few cycles back is finished, here it is:");
     //IMPORTANT: make sure readings is a uint16_t array of size 12, otherwise strange things may happen
     as7341.getAllChannels(readings);  //Calling this any other time may give you old data
-    printReadings();
+//    printReadings();
 
-    Serial.println("\nLet's try a reading using readAllChannels (inbuilt delay), waiting...");
-    if (!as7341.readAllChannels(readings))
-      Serial.println("Error reading all channels!");
-    else
-      printReadings();
-    Serial.println("Guess we'll start another reading right away but do some work in the meantime\n");
     as7341.startReading();
   }
 }
