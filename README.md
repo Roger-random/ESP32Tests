@@ -25,3 +25,7 @@ based on a subscribed topic. Then goes into deep sleep and wake up to do it agai
 later. Has problems with holding output pins through waking up.
 * `bare_lcd_2digit` - Drives a two-digit 7-segment LCD salvaged from an
 electric blanket controller. PlatformIO/ESP-IDF/LEDC PWM
+* `mozzi_as7341` - On AVR Arduino, Adafruit's AS7341 library is incompatible
+with Mozzi library due to compile-time errors. (Collision in twi_nonblock
+and Wire library?) On an ESP32 twi_nonblock is absent. This sketch proves
+those two libraries can play nice together on ESP32 Arduino.

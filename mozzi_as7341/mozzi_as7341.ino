@@ -1,4 +1,7 @@
-/* This example shows to to read all channels from the AS7341 and print out reported values, but allow loop() to run while waiting for the readings */
+/* This is a modification of Adafruit's read_while_looping example
+illustrating how to read all channels from the AS7341 and print out reported
+values, but allow loop() to run while waiting for the readings. This is
+important for compatiblity with Mozzi library to ensure glitch-free sound */
 #include <Adafruit_AS7341.h>
 
 #include <MozziGuts.h>
