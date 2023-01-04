@@ -60,6 +60,10 @@ void setup()
   // Start Mozzi sine wave
   aSin.setFreq(440);
   startMozzi(CONTROL_RATE);
+
+  // Turn LED on to minimum
+  as7341.setLEDCurrent(4); // 4mA
+  as7341.enableLED(true);
 }
 
 // Update Mozzi sine wave frequency based on which (F1-F8) is strongest
