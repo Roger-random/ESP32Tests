@@ -12,6 +12,21 @@ Adafruit_AS7341 as7341;
 //TwoWire myWire2(2);
 uint16_t readings[12];
 
+/////////////////////////////////////////////////////////////////////////////
+// Declarations supporting Mozzi audio generation
+
+// I expected these to be in Mozzi library somewhere but I failed to find it.
+const int note_C4 = mtof(60);
+const int note_D4 = mtof(62);
+const int note_E4 = mtof(64);
+const int note_F4 = mtof(65);
+const int note_G4 = mtof(67);
+const int note_A4 = mtof(69);
+const int note_B4 = mtof(71);
+const int note_C5 = mtof(72);
+
+int scale4[] = {note_C4, note_D4, note_E4, note_F4, note_G4, note_A4, note_B4, note_C5};
+
 // Mozzi setup
 Oscil <2048, AUDIO_RATE> aSin(SIN2048_DATA);
 
@@ -47,6 +62,22 @@ void setup()
   startMozzi(CONTROL_RATE);
 }
 
+// Update Mozzi sine wave frequency based on which (F1-F8) is strongest
+void updateFrequency() {
+  uint8_t maxIndex = 0;
+
+  for(int i = 1; i < 10; i++) {
+    if (i == 4 || i == 5) {
+      // Skip Clear and IR sitting between F1-F4 and F5-F8
+      continue;
+    }
+    if (readings[i] > readings[maxIndex]) {
+      maxIndex = i;
+    }
+  }
+  aSin.setFreq(scale4[maxIndex]);
+}
+
 void updateControl()
 {
   bool timeOutFlag = yourTimeOutCheck();
@@ -55,10 +86,8 @@ void updateControl()
     if(timeOutFlag)
     {} //Recover/restart/retc.
 
-//    Serial.println("\nAha, the reading we started a few cycles back is finished, here it is:");
-    //IMPORTANT: make sure readings is a uint16_t array of size 12, otherwise strange things may happen
     as7341.getAllChannels(readings);  //Calling this any other time may give you old data
-//    printReadings();
+    updateFrequency();
 
     as7341.startReading();
   }
